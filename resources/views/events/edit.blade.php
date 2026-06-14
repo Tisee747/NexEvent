@@ -1,22 +1,25 @@
-@extends('layouts.app')
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Acara - NexEvent</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Edit Acara</h2>
+        <a href="/events" class="btn btn-secondary mb-4">Kembali</a>
 
-@section('title', 'Edit Acara')
-
-@section('content')
-<div class="container-fluid p-0">
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fw-bold text-gray-800">Edit Acara</h5>
-            <a href="{{ url()->previous() }}" class="btn btn-sm btn-light border"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
-        </div>
-        <div class="card-body p-4">
-            
-            @if($event->status == 'rejected')
-                <div class="alert alert-danger mb-4">
-                    <strong><i class="fas fa-exclamation-triangle me-1"></i> Catatan Penolakan Kampus:</strong><br>
-                    {{ $event->reject_reason }}
-                </div>
-            @endif
+        @if($errors->any())
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
             <form action="{{ route('events.update', $event->id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
