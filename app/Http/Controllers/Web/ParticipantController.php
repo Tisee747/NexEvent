@@ -1,27 +1,68 @@
 <?php
-
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Event;
 use App\Models\Registration;
+use App\Models\Event;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ParticipantController extends Controller
 {
-    public function index($eventId)
+    public function index(Request $request)
     {
-        $event = Event::findOrFail($eventId);
-        $participants = Registration::with('user')->where('event_id', $eventId)->get();
+        $events = Event::where('user_id', Auth::id())->get(); 
+        $selectedEventId = $request->input('event_id', $events->first()->id ?? null);
+        $searchKeyword = $request->input('search'); 
+        
+        $selectedEvent = null;
+        $registrations = collect();
+        $totalUtama = 0;
+        $totalWaitlist = 0;
 
-        return view('participants', compact('event', 'participants'));
+        if ($selectedEventId) {
+            $selectedEvent = Event::find($selectedEventId);
+            
+            $query = Registration::with('user')->where('event_id', $selectedEventId);
+
+            if ($searchKeyword) {
+                $query->whereHas('user', function($q) use ($searchKeyword) {
+                    $q->where('name', 'like', '%' . $searchKeyword . '%')
+                      ->orWhere('email', 'like', '%' . $searchKeyword . '%');
+                });
+            }
+
+            $registrations = $query->get();
+                                
+            $totalUtama = Registration::where('event_id', $selectedEventId)->where('status', 'utama')->count();
+            $totalWaitlist = Registration::where('event_id', $selectedEventId)->where('status', 'waitlist')->count();
+        }
+        return view('participants.index', compact('events', 'selectedEvent', 'selectedEventId', 'registrations', 'totalUtama', 'totalWaitlist', 'searchKeyword'));
     }
 
-    public function verifyAttendance($registrationId)
+    public function attendance(Request $request)
     {
-        $registration = Registration::findOrFail($registrationId);
-        $registration->update(['status' => 'hadir']);
+        $events = Event::where('user_id', Auth::id())->where('status', 'approved')->get();
+        $selectedEventId = $request->input('event_id', $events->first()->id ?? null);
+        
+        $registrations = collect();
+        if ($selectedEventId) {
+            $registrations = Registration::with('user')
+                                ->where('event_id', $selectedEventId)
+                                ->where('status', 'utama')
+                                ->get();
+        }
 
-        return back()->with('success', 'Kehadiran berhasil diverifikasi!');
+        return view('participants.attendance', compact('events', 'selectedEventId', 'registrations'));
+    }
+
+    public function markAttendance(Request $request, $id)
+    {
+        $reg = Registration::findOrFail($id);
+        $reg->update([
+            'attendance_status' => $request->attendance_status
+        ]);
+
+        return back()->with('success', 'Status kehadiran peserta berhasil diupdate!');
     }
 }

@@ -1,17 +1,26 @@
 <?php
-
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Event;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth; 
 
 class EventController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $events = Event::orderBy('event_date', 'desc')->get();
-        return view('events.index', compact('events'));
+        $searchKeyword = $request->input('search'); 
+        $query = Event::where('user_id', Auth::id())
+                      ->withCount('registrations');
+
+        if ($searchKeyword) {
+            $query->where('title', 'like', '%' . $searchKeyword . '%');
+        }
+
+        $events = $query->latest()->get();
+                       
+        return view('events.index', compact('events', 'searchKeyword'));
     }
 
     public function create()
@@ -19,48 +28,53 @@ class EventController extends Controller
         return view('events.create');
     }
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'event_date' => 'required|date',
-            'capacity' => 'required|integer|min:1',
-            'status' => 'required|in:aktif,arsip'
-        ]);
-
-        Event::create($request->all());
-
-        return redirect('/events')->with('success', 'Acara baru berhasil ditambahkan!');
-    }
-
     public function edit($id)
     {
-        $event = Event::findOrFail($id);
+        $event = Event::where('user_id', Auth::id())->findOrFail($id);
         return view('events.edit', compact('event'));
     }
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'event_date' => 'required|date',
-            'capacity' => 'required|integer|min:1',
-            'status' => 'required|in:aktif,arsip'
-        ]);
+        $event = Event::where('user_id', Auth::id())->findOrFail($id);
+        $data = $request->all();
+        $data['status'] = 'pending';
 
-        $event = Event::findOrFail($id);
-        $event->update($request->all());
+        if ($request->hasFile('poster')) {
+            $data['poster'] = $request->file('poster')->store('posters', 'public');
+        }
 
-        return redirect('/events')->with('success', 'Data acara berhasil diperbarui!');
+        if ($request->hasFile('proposal')) {
+            $data['proposal'] = $request->file('proposal')->store('proposals', 'public');
+        }
+
+        $event->update($data);
+        return redirect()->route('events.index')->with('success', 'Perubahan disimpan dan masuk antrean review!');
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->all();
+        $data['user_id'] = Auth::id();
+        $data['event_code'] = 'EVT-' . strtoupper(Str::random(5));
+
+        if ($request->hasFile('poster')) {
+            $data['poster'] = $request->file('poster')->store('posters', 'public');
+        }
+
+        if ($request->hasFile('proposal')) {
+            $data['proposal'] = $request->file('proposal')->store('proposals', 'public');
+        }
+
+        Event::create($data);
+        return redirect()->route('events.index')->with('success', 'Acara berhasil diajukan!');
     }
 
     public function destroy($id)
     {
-        $event = Event::findOrFail($id);
+        $event = Event::where('user_id', Auth::id())->findOrFail($id);
         $event->delete();
-
-        return redirect('/events')->with('success', 'Acara berhasil dihapus!');
+        
+        return redirect()->route('events.index')->with('success', 'Acara berhasil dihapus!');
     }
 }

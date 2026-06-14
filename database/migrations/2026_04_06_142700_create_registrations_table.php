@@ -9,13 +9,14 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('registrations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->string('reg_code')->unique();
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
-            $table->enum('status', ['terdaftar', 'waitlist', 'hadir', 'batal'])->default('terdaftar');
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete(); 
+            $table->enum('status', ['utama', 'waitlist'])->default('utama');
             $table->timestamps();
         });
     }

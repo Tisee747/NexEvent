@@ -1,21 +1,16 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\Event;
+use Illuminate\Http\Request;
+// use App\Models\Event; // Nanti dipakai saat datanya sudah dinamis
 
 class EventController extends Controller
 {
     public function index()
     {
-        $events = Event::where('status', 'aktif')
-                       ->orderBy('event_date', 'asc')
-                       ->get();
-
-        return response()->json([
-            'message' => 'Berhasil mengambil daftar acara',
-            'data' => $events
-        ]);
+        // Untuk sementara kita panggil view-nya saja dulu
+        return view('events.index');
     }
 }
