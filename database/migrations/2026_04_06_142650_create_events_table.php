@@ -14,7 +14,10 @@ return new class extends Migration
         Schema::create('events', function (Blueprint $table) {
             $table->id();
             $table->string('event_code')->unique();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete(); 
+            
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete(); 
+            $table->foreignId('admin_id')->constrained('users')->cascadeOnDelete(); 
+            
             $table->string('title');
             $table->text('description');
             $table->dateTime('event_date');
@@ -29,7 +32,7 @@ return new class extends Migration
             $table->string('poster_path')->nullable();
             $table->string('proposal_path')->nullable();
 
-            $table->enum('status', ['pending', 'approved', 'rejected', 'archived'])->default('pending');
+            $table->enum('status', ['pending', 'pending_admin', 'pending_superadmin', 'approved', 'rejected', 'archived'])->default('pending_admin');
             $table->text('reject_reason')->nullable(); 
             
             $table->timestamps();

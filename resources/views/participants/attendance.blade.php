@@ -4,9 +4,7 @@
 
 @section('content')
 <div class="container-fluid p-0">
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show"><i class="fas fa-check-circle me-1"></i> {{ session('success') }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
-    @endif
+    <div id="alertBox" class="alert d-none alert-dismissible fade show small p-2 mb-3"></div>
 
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-body p-4 bg-light rounded d-flex justify-content-between align-items-center">
@@ -14,15 +12,11 @@
                 <h6 class="fw-bold mb-1"><i class="fas fa-qrcode text-primary me-2"></i>Pilih Acara untuk Absensi</h6>
                 <small class="text-muted">Hanya menampilkan acara yang sudah disetujui kampus.</small>
             </div>
-            <form action="{{ route('attendance.index') }}" method="GET" class="d-flex gap-2 w-50">
-                <select name="event_id" class="form-select" onchange="this.form.submit()">
-                    @forelse($events as $event)
-                        <option value="{{ $event->id }}" {{ $selectedEventId == $event->id ? 'selected' : '' }}>{{ $event->title }}</option>
-                    @empty
-                        <option value="">Belum ada acara yang disetujui</option>
-                    @endforelse
+            <div class="d-flex gap-2 w-50">
+                <select id="eventSelect" class="form-select" onchange="fetchAttendance()">
+                    <option value="">Memuat acara...</option>
                 </select>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -40,43 +34,110 @@
                             <th class="text-center">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse($registrations as $index => $reg)
-                        <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td class="fw-bold">{{ $reg->user->name }}</td>
-                            <td>{{ $reg->user->email }}</td>
-                            <td>{{ \Carbon\Carbon::parse($reg->created_at)->format('d M Y, H:i') }} WIB</td>
-                            <td>
-                                @if($reg->attendance_status == 'hadir')
-                                    <span class="badge bg-success"><i class="fas fa-check-double"></i> Hadir</span>
-                                @else
-                                    <span class="badge bg-secondary"><i class="fas fa-minus"></i> Belum Hadir</span>
-                                @endif
-                            </td>
-                            
-                            <td class="text-center">
-                                <form action="{{ route('attendance.mark', $reg->id) }}" method="POST" class="d-flex justify-content-center">
-                                    @csrf
-                                    @if($reg->attendance_status == 'hadir')
-                                        <button type="submit" name="attendance_status" value="belum_hadir" class="btn btn-sm btn-outline-danger" title="Batalkan Kehadiran">
-                                            <i class="fas fa-undo me-1"></i> Batal
-                                        </button>
-                                    @else
-                                        <button type="submit" name="attendance_status" value="hadir" class="btn btn-sm btn-success fw-bold">
-                                            <i class="fas fa-check me-1"></i> Hadir
-                                        </button>
-                                    @endif
-                                </form>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="6" class="text-center text-muted">Tidak ada peserta berstatus UTAMA di acara ini.</td></tr>
-                        @endforelse
+                    <tbody id="attendanceTableBody">
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Pilih acara terlebih dahulu.</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    const token = localStorage.getItem('auth_token');
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            let response = await fetch('/api/participants', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            let result = await response.json();
+            
+            let select = document.getElementById('eventSelect');
+            select.innerHTML = '<option value="">-- Pilih Acara --</option>';
+            
+            if(result.data.events.length > 0) {
+                result.data.events.forEach(ev => {
+                    select.innerHTML += `<option value="${ev.id}">${ev.title}</option>`;
+                });
+            }
+        } catch (error) {
+            console.error("Gagal memuat acara");
+        }
+    });
+
+    async function fetchAttendance() {
+        let eventId = document.getElementById('eventSelect').value;
+        let tbody = document.getElementById('attendanceTableBody');
+
+        if (!eventId) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Pilih acara terlebih dahulu.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><i class="fas fa-spinner fa-spin me-2"></i> Memuat data kehadiran...</td></tr>';
+
+        try {
+            let response = await fetch(`/api/participants?event_id=${eventId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            let result = await response.json();
+
+            // Filter hanya peserta utama (Bukan Waitlist)
+            let pesertaUtama = result.data.registrations.filter(r => r.status === 'utama');
+
+            if (pesertaUtama.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada peserta berstatus UTAMA di acara ini.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '';
+            pesertaUtama.forEach((reg, index) => {
+                let dateStr = new Date(reg.created_at).toLocaleString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
+                
+                let statusBadge = reg.attendance_status === 'hadir'
+                    ? '<span class="badge bg-success"><i class="fas fa-check-double"></i> Hadir</span>'
+                    : '<span class="badge bg-secondary"><i class="fas fa-minus"></i> Belum Hadir</span>';
+
+                let actionBtn = reg.attendance_status === 'hadir'
+                    ? `<button onclick="updateAttendance(${reg.id}, 'belum_hadir')" class="btn btn-sm btn-outline-danger" title="Batalkan Kehadiran"><i class="fas fa-undo me-1"></i> Batal</button>`
+                    : `<button onclick="updateAttendance(${reg.id}, 'hadir')" class="btn btn-sm btn-success fw-bold"><i class="fas fa-check me-1"></i> Hadir</button>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td class="fw-bold">${reg.user.name}</td>
+                        <td>${reg.user.email}</td>
+                        <td>${dateStr} WIB</td>
+                        <td>${statusBadge}</td>
+                        <td class="text-center">${actionBtn}</td>
+                    </tr>
+                `;
+            });
+        } catch (error) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-danger">Gagal menarik data server.</td></tr>';
+        }
+    }
+
+    async function updateAttendance(regId, newStatus) {
+        try {
+            let response = await fetch(`/api/attendance/${regId}`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ attendance_status: newStatus })
+            });
+
+            if(response.ok) {
+                fetchAttendance(); 
+            } else {
+                alert('Gagal memperbarui status absensi');
+            }
+        } catch (error) {
+            alert('Kesalahan jaringan');
+        }
+    }
+</script>
 @endsection

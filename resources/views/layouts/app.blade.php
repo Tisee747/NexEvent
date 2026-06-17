@@ -24,62 +24,52 @@
                 <i class="fas fa-ticket-alt text-primary me-2"></i>NexEvent
             </h4>
 
-            @if(Auth::user()->role === 'superadmin')
+            <div id="menuSuperadmin" class="d-none">
                 <small class="text-warning text-uppercase fw-bold mb-2 d-block mt-3">Menu Kemahasiswaan</small>
-                
-                <a href="{{ route('superadmin.dashboard') }}" class="{{ request()->routeIs('superadmin.dashboard') ? 'active' : '' }}">
+                <a href="/superadmin/dashboard" class="{{ request()->is('superadmin/dashboard') ? 'active' : '' }}">
                     <i class="fas fa-chart-pie me-2"></i> Dashboard Utama
                 </a>
-                
-                <a href="{{ route('superadmin.index') }}" class="{{ request()->routeIs('superadmin.index') ? 'active' : '' }}">
+                <a href="/superadmin" class="{{ request()->is('superadmin') ? 'active' : '' }}">
                     <i class="fas fa-shield-alt me-2"></i> Pusat Approval
                 </a>
-                
-                <a href="{{ route('superadmin.allEvents') }}" class="{{ request()->routeIs('superadmin.allEvents') ? 'active' : '' }}">
+                <a href="/superadmin/all-events" class="{{ request()->is('superadmin/all-events') ? 'active' : '' }}">
                     <i class="fas fa-list-alt me-2"></i> Semua Acara
                 </a>
-                
-                <a href="{{ route('superadmin.organizations') }}" class="{{ request()->routeIs('superadmin.organizations') ? 'active' : '' }}">
+                <a href="/superadmin/organizations" class="{{ request()->is('superadmin/organizations') ? 'active' : '' }}">
                     <i class="fas fa-sitemap me-2"></i> Manajemen Organisasi
                 </a>
-                
-            @else
-                
+            </div>
+            
+            <div id="menuPanitia" class="d-none">
                 <small class="text-info text-uppercase fw-bold mb-2 d-block mt-3">Menu Panitia</small>
-                <a href="{{ url('/') }}" class="{{ request()->is('/') ? 'active' : '' }}">
+                <a href="/" class="{{ request()->is('/') ? 'active' : '' }}">
                     <i class="fas fa-chart-line me-2"></i> Dashboard
                 </a>
-                <a href="{{ route('events.index') }}" class="{{ request()->routeIs('events.index') || request()->routeIs('events.create') ? 'active' : '' }}">
+                <a href="/events" class="{{ request()->is('events*') ? 'active' : '' }}">
                     <i class="fas fa-calendar-alt me-2"></i> Daftar Acara
-                <a href="{{ route('participants.index') }}" class="{{ request()->routeIs('participants.index') ? 'active' : '' }}">
+                </a>
+                <a href="/participants" class="{{ request()->is('participants*') ? 'active' : '' }}">
                     <i class="fas fa-users me-2"></i> Manajemen Peserta
                 </a>
-                <a href="{{ route('attendance.index') }}" class="{{ request()->routeIs('attendance.index') ? 'active' : '' }}">
+                <a href="/attendance" class="{{ request()->is('attendance*') ? 'active' : '' }}">
                     <i class="fas fa-qrcode me-2"></i> Verifikasi Kehadiran
                 </a>
-                
-            @endif
+            </div>
             
             <hr class="border-secondary mt-4">
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="btn btn-link text-danger text-decoration-none p-0 ps-3 w-100 text-start">
-                    <i class="fas fa-sign-out-alt me-2"></i> Logout
-                </button>
-            </form>
+            <a href="#" onclick="handleLogout(event)"><i class="fas fa-sign-out-alt me-2"></i> Logout</a>
         </div>
 
         <div class="main-content">
-            
             <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm rounded mb-4 p-3">
                 <div class="container-fluid">
                     <span class="navbar-brand mb-0 h4 fw-bold">@yield('title', 'Dashboard')</span>
                     <div class="d-flex align-items-center">
                         <div class="text-end me-3">
-                            <span class="d-block fw-semibold lh-1">{{ Auth::user()->name }}</span>
-                            <small class="text-muted" style="font-size: 0.75rem;">{{ Auth::user()->organization ?? 'Superadmin' }}</small>
+                            <span id="navUserName" class="d-block fw-semibold lh-1">Memuat...</span>
+                            <small id="navUserOrg" class="text-muted" style="font-size: 0.75rem;">...</small>
                         </div>
-                        <img src="https://ui-avatars.com/api/?name={{ urlencode(Auth::user()->name) }}&background=0d6efd&color=fff" class="rounded-circle shadow-sm" width="40" alt="Profile">
+                        <img id="navUserAvatar" src="https://ui-avatars.com/api/?name=User&background=0d6efd&color=fff" class="rounded-circle shadow-sm" width="40" alt="Profile">
                     </div>
                 </div>
             </nav>
@@ -90,5 +80,47 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('auth_token');
+            const userData = localStorage.getItem('user_data');
+
+            if (!token || !userData) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const user = JSON.parse(userData);
+
+            document.getElementById('navUserName').textContent = user.name;
+            document.getElementById('navUserOrg').textContent = user.organization || (user.role === 'superadmin' ? 'Superadmin' : 'Panitia');
+            document.getElementById('navUserAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0d6efd&color=fff`;
+
+            // Menampilkan menu samping sesuai peran
+            if (user.role === 'superadmin') {
+                document.getElementById('menuSuperadmin').classList.remove('d-none');
+            } else {
+                document.getElementById('menuPanitia').classList.remove('d-none');
+            }
+        });
+
+        function handleLogout(e) {
+            e.preventDefault();
+            const token = localStorage.getItem('auth_token');
+            
+            fetch('/api/logout', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+            }).then(() => {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user_data');
+                window.location.href = '/login';
+            }).catch(() => {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user_data');
+                window.location.href = '/login';
+            });
+        }
+    </script>
 </body>
 </html>

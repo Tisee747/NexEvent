@@ -19,27 +19,28 @@
                 <p class="text-muted small">Buat akun untuk organisasi kamu agar bisa mempublikasikan acara.</p>
             </div>
             
-            <form action="{{ route('register.post') }}" method="POST">
-                @csrf
+            <div id="alertBox" class="alert d-none small p-2"></div>
+
+            <form id="registerForm">
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Nama Perwakilan</label>
-                    <input type="text" name="name" class="form-control" placeholder="Contoh: Budi Santoso" required>
+                    <input type="text" id="name" class="form-control" placeholder="Contoh: Budi Santoso" required>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Asal Organisasi (HIMA/UKM)</label>
-                    <input type="text" name="organization" class="form-control" placeholder="Contoh: BEM KEMA Tel-U" required>
+                    <input type="text" id="organization" class="form-control" placeholder="Contoh: BEM KEMA Tel-U" required>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Email Resmi Organisasi</label>
-                    <input type="email" name="email" class="form-control" placeholder="organisasi@student.telkomuniversity.ac.id" required>
+                    <input type="email" id="email" class="form-control" placeholder="organisasi@student.telkomuniversity.ac.id" required>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Password</label>
                     <div class="input-group">
-                        <input type="password" name="password" id="regPassword" class="form-control" placeholder="Minimal 8 karakter" required>
+                        <input type="password" id="regPassword" class="form-control" placeholder="Minimal 8 karakter" required>
                         <button class="btn btn-light border" type="button" onclick="togglePassword('regPassword', 'iconReg1')">
                             <i class="fas fa-eye text-muted" id="iconReg1"></i>
                         </button>
@@ -49,32 +50,22 @@
                 <div class="mb-4">
                     <label class="form-label fw-semibold">Konfirmasi Password</label>
                     <div class="input-group">
-                        <input type="password" name="password_confirmation" id="regConfirm" class="form-control" placeholder="Ketik ulang password" required>
+                        <input type="password" id="regConfirm" class="form-control" placeholder="Ketik ulang password" required>
                         <button class="btn btn-light border" type="button" onclick="togglePassword('regConfirm', 'iconReg2')">
                             <i class="fas fa-eye text-muted" id="iconReg2"></i>
                         </button>
                     </div>
                 </div>
 
-                @if ($errors->any())
-                    <div class="alert alert-danger small p-2">
-                        <ul class="mb-0 ps-3">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
-
                 <div class="alert alert-warning border-0 p-3 small mb-4">
                     <i class="fas fa-info-circle me-2"></i> Akun yang baru didaftarkan akan berstatus <strong>Pending</strong> dan harus menunggu persetujuan (Approval) dari pihak Kemahasiswaan.
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 fw-bold mb-3">Daftar Sekarang</button>
+                <button type="submit" id="btnSubmit" class="btn btn-primary w-100 fw-bold mb-3">Daftar Sekarang</button>
             </form>
 
             <div class="text-center mt-2 small">
-                Sudah punya akun? <a href="{{ route('login') }}" class="fw-bold text-decoration-none">Kembali ke Login</a>
+                Sudah punya akun? <a href="/login" class="fw-bold text-decoration-none">Kembali ke Login</a>
             </div>
         </div>
     </div>
@@ -92,6 +83,68 @@
                 icon.classList.add('fa-eye');
             }
         }
+
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            let btn = document.getElementById('btnSubmit');
+            let alertBox = document.getElementById('alertBox');
+            let pwd1 = document.getElementById('regPassword').value;
+            let pwd2 = document.getElementById('regConfirm').value;
+
+            if (pwd1 !== pwd2) {
+                alertBox.className = 'alert alert-danger small p-2';
+                alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Password konfirmasi tidak cocok.';
+                alertBox.classList.remove('d-none');
+                return;
+            }
+
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+            btn.disabled = true;
+            alertBox.classList.add('d-none');
+
+            let payload = {
+                name: document.getElementById('name').value,
+                organization: document.getElementById('organization').value,
+                email: document.getElementById('email').value,
+                password: pwd1,
+                password_confirmation: pwd2
+            };
+
+            try {
+                let response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                let result = await response.json();
+
+                if (response.ok) {
+                    alertBox.className = 'alert alert-success small p-2';
+                    alertBox.innerHTML = '<i class="fas fa-check-circle me-1"></i> Pendaftaran berhasil! Mengalihkan ke halaman login...';
+                    alertBox.classList.remove('d-none');
+                    
+                    setTimeout(() => { window.location.href = '/login'; }, 2000);
+                } else {
+                    alertBox.className = 'alert alert-danger small p-2';
+                    let errorMsg = result.message || 'Pendaftaran gagal.';
+                    if(result.errors) {
+                        errorMsg = Object.values(result.errors)[0][0]; 
+                    }
+                    alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> ' + errorMsg;
+                    alertBox.classList.remove('d-none');
+                    btn.innerHTML = 'Daftar Sekarang';
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                alertBox.className = 'alert alert-danger small p-2';
+                alertBox.innerHTML = '<i class="fas fa-wifi me-1"></i> Gagal terhubung ke server.';
+                alertBox.classList.remove('d-none');
+                btn.innerHTML = 'Daftar Sekarang';
+                btn.disabled = false;
+            }
+        });
     </script>
 </body>
 </html>

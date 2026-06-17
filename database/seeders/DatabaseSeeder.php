@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\Registration;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
@@ -18,7 +19,12 @@ class DatabaseSeeder extends Seeder
             'email' => 'dirmawa@telkomuniversity.ac.id',
             'password' => bcrypt('password'),
             'role' => 'superadmin',
-            'status' => 'active'
+            'status' => 'active',
+            'organization' => 'Direktorat Kemahasiswaan',
+            'nim' => null,
+            'fakultas' => null,
+            'program_studi' => null,
+            'angkatan' => null
         ]);
         
         $organisasiTelU = [
@@ -37,20 +43,67 @@ class DatabaseSeeder extends Seeder
                 'password' => bcrypt('password'),
                 'organization' => $org['org'],
                 'role' => 'admin',
-                'status' => 'active'
+                'status' => 'active',
+                'nim' => null,
+                'fakultas' => null,
+                'program_studi' => null,
+                'angkatan' => null
             ]));
         }
 
+        $fakultasProdi = [
+            'Fakultas Informatika' => ['S1 Informatika', 'S1 Teknologi Informasi', 'S1 Rekayasa Perangkat Lunak', 'S1 Sains Data'],
+            'Fakultas Teknik Elektro' => ['S1 Teknik Telekomunikasi', 'S1 Teknik Elektro', 'S1 Teknik Komputer', 'S1 Teknik Biomedis'],
+            'Fakultas Rekayasa Industri' => ['S1 Teknik Industri', 'S1 Sistem Informasi', 'S1 Logistik'],
+            'Fakultas Ekonomi dan Bisnis' => ['S1 Manajemen Bisnis Telekomunikasi dan Informatika', 'S1 Akuntansi'],
+            'Fakultas Komunikasi dan Sosial' => ['S1 Ilmu Komunikasi', 'S1 Administrasi Bisnis', 'S1 Digital Public Relation', 'S1 Digital Content Broadcasting', 'S1 Psikologi'],
+            'Fakultas Industri Kreatif' => ['S1 Desain Komunikasi Visual', 'S1 Desain Interior', 'S1 Kriya Tekstil dan Fashion'],
+            'Fakultas Ilmu Terapan' => ['D3 Rekayasa Perangkat Lunak Aplikasi', 'D3 Sistem Informasi', 'D3 Teknologi Telekomunikasi']
+        ];
+
         $mahasiswas = collect();
-        for ($i = 1; $i <= 200; $i++) {
+        $mahasiswas->push(User::create([
+            'name' => 'Rafa Nailah Septia',
+            'email' => 'rafa@student.telkomuniversity.ac.id',
+            'password' => bcrypt('password'),
+            'role' => 'user',
+            'status' => 'active',
+            'organization' => null,
+            'nim' => '1301230001',
+            'fakultas' => 'Fakultas Informatika',
+            'program_studi' => 'S1 Informatika',
+            'angkatan' => 2023
+        ]));
+
+        // Pembuatan 199 akun acak
+        for ($i = 2; $i <= 200; $i++) {
+            $fakultas = array_rand($fakultasProdi);
+            $prodi = $fakultasProdi[$fakultas][array_rand($fakultasProdi[$fakultas])];
+            $angkatan = rand(2021, 2024);
+            $prefixJurusan = rand(1101, 1505);
+            $nimAcak = $prefixJurusan . substr($angkatan, -2) . str_pad($i, 4, '0', STR_PAD_LEFT);
+
             $mahasiswas->push(User::create([
                 'name' => 'Mahasiswa Tel-U ' . $i,
                 'email' => 'mahasiswa' . $i . '@student.telkomuniversity.ac.id',
                 'password' => bcrypt('password'),
                 'role' => 'user',
-                'status' => 'active'
+                'status' => 'active',
+                'organization' => null,
+                'nim' => $nimAcak,
+                'fakultas' => $fakultas,
+                'program_studi' => $prodi,
+                'angkatan' => $angkatan
             ]));
         }
+
+        DB::table('organization_members')->insert([
+            'user_id' => $mahasiswas[0]->id,
+            'admin_id' => $panitiaList[0]->id,
+            'status' => 'approved',
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
 
         $eventData = [
             [
@@ -100,6 +153,7 @@ class DatabaseSeeder extends Seeder
             $event = Event::create([
                 'event_code' => 'EVT-' . strtoupper(Str::random(5)),
                 'user_id' => $data['user_id'],
+                'admin_id' => $data['user_id'], 
                 'title' => $data['title'],
                 'description' => 'Ini adalah deskripsi lengkap untuk acara ' . $data['title'] . ' yang diselenggarakan di Telkom University.',
                 'event_date' => Carbon::now()->addDays(rand(10, 30))->format('Y-m-d H:i:00'),

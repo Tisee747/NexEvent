@@ -10,7 +10,9 @@ class Event extends Model
     use HasFactory;
 
     protected $fillable = [
+        'event_code',
         'user_id',
+        'admin_id',
         'title',
         'description',
         'event_date',
@@ -25,9 +27,14 @@ class Event extends Model
         'reject_reason',
     ];
 
-    public function panitia()
+    public function pembuat()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function panitia()
+    {
+        return $this->belongsTo(User::class, 'admin_id');
     }
 
     public function registrations()
