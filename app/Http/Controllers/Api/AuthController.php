@@ -12,7 +12,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => ['required', 'email', 'regex:/^[a-zA-Z0-9._%+-]+@student\.telkomuniversity\.ac\.id$/'],
             'password' => 'required'
         ]);
 
@@ -25,10 +25,10 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->firstOrFail();
         
-        if ($user->role === 'admin' && $user->status === 'pending') {
+        if ($user->role === 'anggota organisasi' && $user->status === 'pending') {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Akun organisasi Anda belum disetujui oleh Superadmin.'
+                'message' => 'Keanggotaan organisasi Anda belum disetujui oleh Superadmin.'
             ], 403);
         }
 
@@ -49,18 +49,19 @@ class AuthController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'organization' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'organization' => 'nullable|string|max:255',
+            'role' => 'required|in:mahasiswa,anggota_organisasi',
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users', 'regex:/^[a-zA-Z0-9._%+-]+@student\.telkomuniversity\.ac\.id$/' ],
             'password' => 'required|string|min:8|confirmed',
         ]);
 
         $user = User::create([
             'name' => $request->name,
-            'organization' => $request->organization,
+            'organization' => $request->role == 'anggota_organisasi' ? $request->organization: null,
             'email' => $request->email,
             'password' => bcrypt($request->password),
-            'role' => 'admin',
-            'status' => 'pending'
+            'role' => $request->role ?? 'mahasiswa',
+            'status' => $request->role == 'anggota_organisasi' ? 'pending' : 'active'
         ]);
 
         return response()->json([
