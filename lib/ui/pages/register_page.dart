@@ -3,7 +3,7 @@ import '../../core/constants.dart';
 import '../../services/auth_service.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({Key? key}) : super(key: key);
+  const RegisterPage({super.key});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -219,19 +219,48 @@ class _RegisterPageState extends State<RegisterPage> {
         iconTheme: const IconThemeData(color: AppColors.blackTextColor),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.only(left: 24, right: 24, bottom: 24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              "Buat Akun",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primaryColor,
+            // PERBAIKAN: Header Logo Registrasi
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.lightBlue.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.confirmation_num,
+                      size: 45,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'NexEvent',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryColor,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    "Buat Akun Mahasiswa Baru",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.greyTextColor,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
             _buildInput("Nama Lengkap", Icons.person, _nameController),
             _buildInput(

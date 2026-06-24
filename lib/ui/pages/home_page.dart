@@ -4,9 +4,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
 import 'login_page.dart';
+import 'proposal_page.dart';
+import 'event_detail_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -15,7 +17,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   bool _isCommittee = false;
+
   List<dynamic> _events = [];
+  List<dynamic> _filteredEvents = [];
+  List<dynamic> _popularEvents = [];
+  String _userName = '...';
+  String? _avatarUrl; // Variabel baru untuk foto profil
 
   @override
   void initState() {
@@ -33,6 +40,14 @@ class _HomePageState extends State<HomePage> {
     }
 
     try {
+      final userResponse = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/user'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
       final committeeResponse = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/student/check-committee'),
         headers: {
@@ -49,40 +64,275 @@ class _HomePageState extends State<HomePage> {
         },
       );
 
-      // TAMBAHKAN TIGA BARIS LOG INI UNTUK DEBUGGING
-      print('Status Code Cek Panitia: ${committeeResponse.statusCode}');
-      print('Status Code Feed Acara: ${feedResponse.statusCode}');
-      print('Isi Respon Feed Acara: ${feedResponse.body}');
+      if (!mounted) return;
 
-      if (committeeResponse.statusCode == 200 &&
-          feedResponse.statusCode == 200) {
+      if (userResponse.statusCode == 200 && feedResponse.statusCode == 200) {
+        final userData = jsonDecode(userResponse.body);
         final committeeData = jsonDecode(committeeResponse.body);
         final feedData = jsonDecode(feedResponse.body);
 
         setState(() {
+          String fullName = userData['name'] ?? 'Mahasiswa';
+          _userName = fullName.split(' ')[0];
           _isCommittee = committeeData['is_committee'] ?? false;
+
+          // SET AVATAR JIKA ADA
+          if (userData['avatar'] != null) {
+            final String baseUrlImage = ApiConstants.baseUrl.replaceAll(
+              '/api',
+              '',
+            );
+            _avatarUrl = '$baseUrlImage/storage/${userData['avatar']}';
+          }
+
           _events = feedData['data'] ?? [];
+          _filteredEvents = List.from(_events);
+
+          _popularEvents = List.from(_events);
+          _popularEvents.sort((a, b) {
+            double capA = (a['capacity'] ?? 1).toDouble();
+            double regA = (a['registrations_count'] ?? 0).toDouble();
+            double pctA = regA / (capA == 0 ? 1 : capA);
+
+            double capB = (b['capacity'] ?? 1).toDouble();
+            double regB = (b['registrations_count'] ?? 0).toDouble();
+            double pctB = regB / (capB == 0 ? 1 : capB);
+
+            return pctB.compareTo(pctA);
+          });
+
+          if (_popularEvents.length > 3) {
+            _popularEvents = _popularEvents.sublist(0, 3);
+          }
+
           _isLoading = false;
         });
       } else {
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      // TAMBAHKAN LOG EROR JIKA TERJADI CRASH
-      print('Eror Sistem Navigasi/JSON: $e');
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal memuat data dari server')),
-      );
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _runFilter(String enteredKeyword) {
+    List<dynamic> results = [];
+    if (enteredKeyword.isEmpty) {
+      results = List.from(_events);
+    } else {
+      results = _events
+          .where(
+            (event) => event['title'].toString().toLowerCase().contains(
+              enteredKeyword.toLowerCase(),
+            ),
+          )
+          .toList();
+    }
+    setState(() => _filteredEvents = results);
   }
 
   Future<void> _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+    }
+  }
+
+  String _getOrganizationName(dynamic event) {
+    if (event['panitia'] != null) {
+      return event['panitia']['organization'] ??
+          event['panitia']['name'] ??
+          'Penyelenggara';
+    }
+    return event['organization_name'] ?? 'Penyelenggara';
+  }
+
+  Widget _buildHorizontalCard(dynamic event) {
+    String orgName = _getOrganizationName(event);
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => EventDetailPage(event: event)),
+      ),
+      child: Container(
+        width: 260,
+        margin: const EdgeInsets.only(right: 16),
+        decoration: BoxDecoration(
+          color: AppColors.cardColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.borderLight, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryColor.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 130,
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                gradient: LinearGradient(
+                  colors: [AppColors.primaryColor, AppColors.secondaryColor],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Center(
+                child: Icon(Icons.celebration, size: 40, color: Colors.white),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event['title'] ?? 'Nama Acara',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.blackTextColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    orgName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        size: 14,
+                        color: AppColors.primaryColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          event['location'] ??
+                              (event['is_online'] == 1 ? 'Online' : 'Offline'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.greyTextColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerticalCard(dynamic event) {
+    String orgName = _getOrganizationName(event);
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => EventDetailPage(event: event)),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.borderLight, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.lightBlue.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.event,
+                color: AppColors.primaryColor,
+                size: 30,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event['title'] ?? 'Nama Acara',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.blackTextColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    orgName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.people_outline,
+                        size: 14,
+                        color: AppColors.greyTextColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Sisa Kuota: ${((event['capacity'] ?? 0) - (event['registrations_count'] ?? 0)).clamp(0, 9999)}',
+                        style: const TextStyle(
+                          color: AppColors.greyTextColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -90,133 +340,174 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          'NexEvent',
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: AppColors.whiteColor,
-        elevation: 1,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: AppColors.greyTextColor),
-            onPressed: _handleLogout,
-          ),
-        ],
-      ),
-
       floatingActionButton: _isCommittee
           ? FloatingActionButton.extended(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Membuka halaman pengajuan proposal...'),
-                  ),
-                );
-              },
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProposalPage()),
+              ),
               backgroundColor: AppColors.primaryColor,
               icon: const Icon(Icons.add, color: Colors.white),
               label: const Text(
                 'Ajukan Acara',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             )
           : null,
-
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadDashboardData,
-              child: _events.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Belum ada acara aktif saat ini.',
-                        style: TextStyle(color: AppColors.greyTextColor),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _events.length,
-                      itemBuilder: (context, index) {
-                        final event = _events[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.whiteColor,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primaryColor),
+              )
+            : RefreshIndicator(
+                color: AppColors.primaryColor,
+                backgroundColor: AppColors.cardColor,
+                onRefresh: _loadDashboardData,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Gambar Banner Acara Placeholder
-                              Container(
-                                height: 150,
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade100,
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(12),
-                                    topRight: Radius.circular(12),
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.image,
-                                    size: 50,
-                                    color: Colors.grey,
-                                  ),
+                              Text(
+                                'Hi, $_userName 👋',
+                                style: const TextStyle(
+                                  color: AppColors.greyTextColor,
+                                  fontSize: 16,
                                 ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      event['title'] ?? 'Nama Acara',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.blackTextColor,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      event['description'] ??
-                                          'Deskripsi acara.',
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: AppColors.greyTextColor,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.location_on,
-                                          size: 16,
-                                          color: AppColors.primaryColor,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          event['location'] ?? 'Kampus',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Explore Events',
+                                style: TextStyle(
+                                  color: AppColors.blackTextColor,
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      },
-                    ),
-            ),
+                          // Ganti Tampilan Icon menjadi Tampilan Avatar yang Dinamis
+                          CircleAvatar(
+                            radius: 26,
+                            backgroundColor: AppColors.lightBlue.withOpacity(
+                              0.4,
+                            ),
+                            backgroundImage: _avatarUrl != null
+                                ? NetworkImage(_avatarUrl!)
+                                : null,
+                            child: _avatarUrl == null
+                                ? const Icon(
+                                    Icons.person,
+                                    color: AppColors.primaryColor,
+                                    size: 28,
+                                  )
+                                : null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.borderLight,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: TextField(
+                          style: const TextStyle(
+                            color: AppColors.blackTextColor,
+                          ),
+                          textInputAction: TextInputAction.search,
+                          onChanged: (value) => _runFilter(value),
+                          onSubmitted: (value) {
+                            _runFilter(value);
+                            FocusScope.of(context).unfocus();
+                          },
+                          decoration: const InputDecoration(
+                            icon: Icon(
+                              Icons.search,
+                              color: AppColors.borderDark,
+                            ),
+                            hintText: 'Cari acara...',
+                            hintStyle: TextStyle(
+                              color: AppColors.greyTextColor,
+                            ),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      if (_popularEvents.isNotEmpty) ...[
+                        const Text(
+                          'Top Popular Events',
+                          style: TextStyle(
+                            color: AppColors.blackTextColor,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 240,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _popularEvents.length,
+                            itemBuilder: (context, index) =>
+                                _buildHorizontalCard(_popularEvents[index]),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      const Text(
+                        'Upcoming Events',
+                        style: TextStyle(
+                          color: AppColors.blackTextColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (_filteredEvents.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 20),
+                            child: Text(
+                              'Acara tidak ditemukan.',
+                              style: TextStyle(color: AppColors.greyTextColor),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _filteredEvents.length,
+                          itemBuilder: (context, index) =>
+                              _buildVerticalCard(_filteredEvents[index]),
+                        ),
+
+                      const SizedBox(height: 80),
+                    ],
+                  ),
+                ),
+              ),
+      ),
     );
   }
 }

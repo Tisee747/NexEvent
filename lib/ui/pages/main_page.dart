@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import 'home_page.dart';
+import 'profile_page.dart';
+import 'tickets_page.dart';
 
 class MainPage extends StatefulWidget {
-  const MainPage({Key? key}) : super(key: key);
+  const MainPage({super.key});
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -15,8 +17,8 @@ class _MainPageState extends State<MainPage> {
   // Daftar halaman yang akan ditampilkan
   final List<Widget> _pages = [
     const HomePage(),
-    const Center(child: Text("Halaman Tiketku Belum Dibuat")),
-    const Center(child: Text("Halaman Profil Belum Dibuat")),
+    const TicketsPage(),
+    const ProfilePage(),
   ];
 
   void _onItemTapped(int index) {
