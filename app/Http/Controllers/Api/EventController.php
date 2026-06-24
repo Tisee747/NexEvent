@@ -52,44 +52,32 @@ class EventController extends Controller
     // Menyimpan acara baru
     public function store(Request $request)
     {
-        $request->validate([
-            'admin_id' => 'required|exists:users,id',
-            'title' => 'required|string|max:255',
-            'event_date' => 'required|date',
-            'capacity' => 'required|integer|min:1',
-            'description' => 'required|string',
-            'is_online' => 'required|boolean',
-            'proposal_path' => 'required|mimes:pdf|max:5120',
-            'poster_path' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-        ]);
+        $event = new Event();
+        $event->event_code = 'EVT-' . strtoupper(Str::random(6));
+        $event->user_id = auth()->id();
+        $event->admin_id = $request->admin_id ?? 1;
+        $event->title = $request->title;
+        $event->description = $request->description ?? '-';
+        $event->event_date = $request->event_date;
+        $event->capacity = $request->capacity;
+        $event->is_online = $request->is_online == '1' ? true : false;
+        $event->latitude = $request->latitude;
+        $event->longitude = $request->longitude;
+        $event->meeting_link = $request->meeting_link;
+        $event->status = 'pending_admin';
 
-        $data = $request->except(['poster_path', 'proposal_path']);
-        $data['user_id'] = $request->admin_id; 
-        $data['event_code'] = 'EVT-' . strtoupper(Str::random(6));
-        $data['status'] = 'pending';
-
-        if ($request->is_online == 1) {
-            $data['latitude'] = null;
-            $data['longitude'] = null;
-        } else {
-            $data['meeting_link'] = null;
+        if ($request->hasFile('poster')) {
+            $event->poster_path = $request->file('poster')->store('posters', 'public');
+        }
+        if ($request->hasFile('proposal')) {
+            $event->proposal_path = $request->file('proposal')->store('proposals', 'public');
         }
 
-        if ($request->hasFile('poster_path')) {
-            $data['poster_path'] = $request->file('poster_path')->store('posters', 'public');
-        }
+        $event->location_name = $request->location_name;
 
-        if ($request->hasFile('proposal_path')) {
-            $data['proposal_path'] = $request->file('proposal_path')->store('proposals', 'public');
-        }
+        $event->save();
 
-        $event = Event::create($data);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Acara berhasil diajukan',
-            'data' => $event
-        ], 201);
+        return response()->json(['status' => 'success', 'message' => 'Acara berhasil diajukan']);
     }
 
     // Memperbarui acara yang ada
@@ -130,6 +118,7 @@ class EventController extends Controller
             if ($event->proposal_path) Storage::disk('public')->delete($event->proposal_path);
             $data['proposal_path'] = $request->file('proposal_path')->store('proposals', 'public');
         }
+        $data['location_name'] = $request->location_name;
 
         $event->update($data);
 

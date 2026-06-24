@@ -8,16 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('organization_members', function (Blueprint $table) {
+        Schema::create('otp_codes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('admin_id')->constrained('users')->onDelete('cascade');
-            $table->string('email');
+            $table->string('email')->index();
+            $table->string('otp', 6);
+            $table->timestamp('expires_at');
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('organization_members');
+        Schema::dropIfExists('otp_codes');
     }
 };

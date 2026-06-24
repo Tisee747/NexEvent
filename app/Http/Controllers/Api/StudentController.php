@@ -7,22 +7,24 @@ use Illuminate\Http\Request;
 use App\Models\Event;
 use App\Models\Registration;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class StudentController extends Controller
 {
-    // 1. Mengambil Feed Acara
     public function feed()
     {
-        $events = Event::with('panitia:id,organization,name')
+        // Menambahkan relasi panitia dan menghitung pendaftar untuk sisa kuota
+        $events = Event::with('panitia')
+            ->withCount(['registrations' => function($q) {
+                $q->where('status', 'utama');
+            }])
             ->where('status', 'approved')
-            ->whereDate('event_date', '>=', now())
             ->orderBy('event_date', 'asc')
             ->get();
-
+            
         return response()->json(['status' => 'success', 'data' => $events]);
     }
 
-    // 2. Mendaftar Acara & Logika Waitlist Otomatis
     public function register(Request $request, $eventId)
     {
         $user = Auth::user();
@@ -32,81 +34,102 @@ class StudentController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Acara tidak tersedia'], 404);
         }
 
-        // Mencegah pendaftaran ganda
         if (Registration::where('user_id', $user->id)->where('event_id', $eventId)->exists()) {
             return response()->json(['status' => 'error', 'message' => 'Anda sudah terdaftar di acara ini'], 400);
         }
 
-        // Cek sisa kuota kapasitas
-        $currentRegistrations = Registration::where('event_id', $eventId)->where('status', 'utama')->count();
-        $status = ($currentRegistrations < $event->capacity) ? 'utama' : 'waitlist';
+        // PERBAIKAN LOGIKA KUOTA
+        $utamaCount = Registration::where('event_id', $eventId)->where('status', 'utama')->count();
+        $status = ($utamaCount >= $event->capacity) ? 'waitlist' : 'utama';
 
-        $registration = Registration::create([
-            'user_id' => $user->id,
+        Registration::create([
+            'reg_code' => 'REG-' . strtoupper(Str::random(6)),
             'event_id' => $eventId,
+            'user_id' => $user->id,
             'status' => $status,
-            'reg_code' => 'TIX-' . strtoupper(substr(md5(time() . $user->id), 0, 6)),
             'attendance_status' => 'belum_hadir'
         ]);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => $status === 'utama' ? 'Berhasil mendaftar!' : 'Kuota penuh, Anda masuk daftar antrean (Waitlist).',
-            'data' => $registration
-        ], 201);
+        return response()->json(['status' => 'success', 'message' => 'Berhasil mendaftar acara.']);
     }
 
-    // 3. Melihat Daftar Tiket Saya
-    public function myTickets()
+    public function myTickets(Request $request)
     {
-        $tickets = Registration::with('event')
-            ->where('user_id', Auth::id())
-            ->latest()
-            ->get();
-            
-        return response()->json(['status' => 'success', 'data' => $tickets]);
-    }
-
-    // 4. Membatalkan Pendaftaran (Oleh Mahasiswa)
-    public function cancel($regId)
-    {
-        $reg = Registration::where('id', $regId)->where('user_id', Auth::id())->first();
+        $user = Auth::user();
+        $tickets = Registration::with('event')->where('user_id', $user->id)->latest()->get();
         
-        if (!$reg) {
-            return response()->json(['status' => 'error', 'message' => 'Tiket tidak ditemukan'], 404);
+        $data = $tickets->map(function($ticket) {
+            return [
+                'event_id' => $ticket->event_id,
+                'event_title' => $ticket->event->title ?? 'Acara',
+                'event_date' => $ticket->event->event_date ?? '-',
+                'status' => $ticket->status,
+            ];
+        });
+
+        return response()->json(['status' => 'success', 'data' => $data]);
+    }
+
+    public function cancel(Request $request, $regId)
+    {
+        $user = Auth::user();
+        $registration = Registration::where('user_id', $user->id)->where('event_id', $regId)->first();
+
+        if (!$registration) {
+            return response()->json(['status' => 'error', 'message' => 'Tiket tidak ditemukan.']);
         }
 
-        $eventId = $reg->event_id;
-        $wasUtama = $reg->status === 'utama';
-        
-        $reg->delete();
+        $registration->delete();
 
-        // Jika yang batal adalah peserta utama, otomatis naikkan 1 orang dari waitlist
-        if ($wasUtama) {
-            $nextInLine = Registration::where('event_id', $eventId)
+        $nextInLine = Registration::where('event_id', $regId)
                                     ->where('status', 'waitlist')
                                     ->orderBy('created_at', 'asc')
                                     ->first();
-            if ($nextInLine) {
-                $nextInLine->update(['status' => 'utama']);
-            }
+        if ($nextInLine) {
+            $nextInLine->update(['status' => 'utama']);
         }
 
         return response()->json(['status' => 'success', 'message' => 'Pendaftaran dibatalkan.']);
     }
 
-    //5. Mengecek apakah mahasiswa terdaftar sebagai panitia organisasi
-    public function checkCommitteeStatus()
+    public function checkCommitteeStatus(Request $request)
     {
-        $user = Auth::user();
-        
-        $isCommittee = \Illuminate\Support\Facades\DB::table('organization_members')
-                        ->where('email', $user->email)
-                        ->exists();
+        $user = $request->user();
+        if (!$user) return response()->json(['status' => 'success', 'is_committee' => false]);
+        $isCommittee = \App\Models\OrganizationMember::where('user_id', $user->id)->exists();
+        return response()->json(['status' => 'success', 'is_committee' => $isCommittee]);
+    }
+
+    public function myOrganizations(Request $request)
+    {
+        $user = $request->user();
+        $memberships = \App\Models\OrganizationMember::where('user_id', $user->id)->get();
+
+        $data = [];
+        $pesanDebug = "Relasi: " . $memberships->count() . " | ";
+
+        foreach ($memberships as $member) {
+            $adminId = $member->admin_id;
+            $pesanDebug .= "AdminID: " . ($adminId ?? 'KOSONG') . " -> ";
+
+            if ($adminId) {
+                $admin = \App\Models\User::find($adminId);
+                if ($admin) {
+                    $pesanDebug .= "Ketemu ({$admin->name}) | ";
+                    $data[] = [
+                        'id' => $admin->id,
+                        'name' => $admin->organization ?? $admin->name ?? 'Organisasi Mahasiswa'
+                    ];
+                } else {
+                    $pesanDebug .= "Admin Tidak Ada Di Database | ";
+                }
+            }
+        }
 
         return response()->json([
-            'status' => 'success',
-            'is_committee' => $isCommittee
-        ]);
+            'message' => 'Berhasil', 
+            'data' => $data,
+            'debug' => $pesanDebug
+        ], 200);
     }
 }

@@ -6,7 +6,7 @@
 <div class="container-fluid p-0">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h5 class="mb-0 fw-bold text-gray-800">Detail Pengajuan Acara</h5>
-        <a href="/superadmin" class="btn btn-light border shadow-sm"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
+        <a href="/superadmin/all-events" class="btn btn-light border shadow-sm"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
     </div>
     
     <div id="alertBox" class="alert d-none small p-2 mb-3"></div>
@@ -47,7 +47,7 @@
                     <textarea id="reject_reason" class="form-control bg-light" rows="4" placeholder="Contoh: Proposal kurang rincian anggaran..." required></textarea>
                 </div>
             </div>
-            <div class="modal-footer bg-light">
+            <div class="modal-footer bg-light border-0">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                 <button type="button" onclick="submitReview('rejected')" class="btn btn-danger fw-bold"><i class="fas fa-paper-plane me-1"></i> Submit Penolakan</button>
             </div>
@@ -85,9 +85,11 @@
         let orgName = event.panitia ? event.panitia.organization : '-';
         let repName = event.panitia ? event.panitia.name : '-';
         
+        let locName = event.location_name ? `<strong class="text-dark">${event.location_name}</strong><br>` : '';
+
         let locationHtml = event.is_online 
-            ? `<span class="badge bg-info text-dark px-3 py-2 rounded-pill"><i class="fas fa-video me-1"></i> Online / Virtual</span>`
-            : `<span class="badge bg-secondary px-3 py-2 rounded-pill"><i class="fas fa-map-marker-alt me-1"></i> Offline / Di Tempat</span><br><small class="text-muted d-block mt-2"><i class="fas fa-location-arrow me-1"></i> Koordinat Maps: ${event.latitude || '-'}, ${event.longitude || '-'}</small>`;
+            ? `<span class="badge bg-info text-dark px-3 py-2 rounded-pill"><i class="fas fa-video me-1"></i> Online / Virtual</span><br><small class="text-muted d-block mt-2"><a href="${event.meeting_link || '#'}" target="_blank">${event.meeting_link || 'Tidak ada link'}</a></small>`
+            : `<span class="badge bg-secondary px-3 py-2 rounded-pill"><i class="fas fa-map-marker-alt me-1"></i> Offline / Di Tempat</span><br><small class="text-muted d-block mt-2"><i class="fas fa-building me-1"></i> ${locName}<i class="fas fa-location-arrow me-1 mt-1"></i> Koordinat Maps: ${event.latitude || '-'}, ${event.longitude || '-'}</small>`;
 
         document.getElementById('eventDetailBox').innerHTML = `
             <h4 class="fw-bold text-primary mb-4">${event.title}</h4>
@@ -103,13 +105,13 @@
         let docHtml = '<h6 class="fw-bold mb-3"><i class="fas fa-file-alt text-primary me-2"></i>Berkas Pendukung</h6>';
         
         if (event.proposal_path) {
-            docHtml += `<a href="/storage/${event.proposal_path}" target="_blank" class="btn btn-outline-danger w-100 mb-2 text-start"><i class="fas fa-file-pdf me-2"></i> Lihat Proposal PDF</a>`;
+            docHtml += `<a href="/view-document?path=${encodeURIComponent(event.proposal_path)}" target="_blank" class="btn btn-outline-danger w-100 mb-2 text-start fw-bold"><i class="fas fa-file-pdf me-2"></i> Lihat Proposal PDF</a>`;
         } else {
             docHtml += `<button class="btn btn-light w-100 mb-2 text-start disabled"><i class="fas fa-times me-2"></i> Proposal Belum Tersedia</button>`;
         }
 
         if (event.poster_path) {
-            docHtml += `<a href="/storage/${event.poster_path}" target="_blank" class="btn btn-outline-primary w-100 text-start"><i class="fas fa-image me-2"></i> Lihat Poster Acara</a>`;
+            docHtml += `<a href="/view-document?path=${encodeURIComponent(event.poster_path)}" target="_blank" class="btn btn-outline-primary w-100 text-start fw-bold"><i class="fas fa-image me-2"></i> Lihat Poster Acara</a>`;
         } else {
             docHtml += `<button class="btn btn-light w-100 text-start disabled"><i class="fas fa-times me-2"></i> Poster Belum Tersedia</button>`;
         }
@@ -152,13 +154,16 @@
         }
 
         try {
+            // Jika ada error method not supported, ubah method menjadi PATCH (atau PUT sesuai routing API kamu)
+            // Backend menerima nama variabel 'action', bukan 'status'
             let res = await fetch(`/api/superadmin/events/${eventId}/status`, {
-                method: 'POST',
+                method: 'POST', // atau PATCH jika API membutuhkannya
                 headers: { 
                     'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
-                body: JSON.stringify({ status: status, reject_reason: reason })
+                body: JSON.stringify({ action: status, reject_reason: reason })
             });
 
             if (res.ok) {
@@ -169,7 +174,8 @@
                 showAlert('Status acara berhasil diperbarui.', 'success');
                 loadEventDetail();
             } else {
-                showAlert('Gagal memperbarui status.', 'danger');
+                let result = await res.json();
+                showAlert(result.message || 'Gagal memperbarui status.', 'danger');
             }
         } catch(e) {
             showAlert('Kesalahan jaringan.', 'danger');
@@ -178,7 +184,7 @@
 
     function showAlert(msg, type) {
         let box = document.getElementById('alertBox');
-        box.className = `alert alert-${type} small p-2 mb-3`;
+        box.className = `alert alert-${type} small p-2 mb-3 fw-bold`;
         box.innerHTML = msg;
         box.classList.remove('d-none');
         window.scrollTo(0,0);

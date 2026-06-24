@@ -94,12 +94,12 @@
 
                 let result = await response.json();
 
-                if (response.ok) {
+                if (response.ok && result.data && result.data.token) {
                     alertBox.className = 'alert alert-success small p-2';
                     alertBox.innerHTML = '<i class="fas fa-check-circle me-1"></i> Login berhasil!';
                     alertBox.classList.remove('d-none');
                     
-                    localStorage.setItem('auth_token', result.data.access_token);
+                    localStorage.setItem('auth_token', result.data.token);
                     localStorage.setItem('user_data', JSON.stringify(result.data.user));
                     
                     setTimeout(() => {

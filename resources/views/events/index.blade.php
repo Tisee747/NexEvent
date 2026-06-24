@@ -52,6 +52,28 @@
     </div>
 </div>
 
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold"><i class="fas fa-times-circle me-2"></i>Tolak Proposal Acara</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="rejectEventId">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Alasan Penolakan / Revisi</label>
+                    <textarea id="rejectReason" class="form-control bg-light" rows="4" placeholder="Tuliskan alasan spesifik agar panitia dapat memperbaiki kesalahannya..." required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-danger px-4 fw-bold" onclick="submitRejection()">Kirim Penolakan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const token = localStorage.getItem('auth_token');
     const user = JSON.parse(localStorage.getItem('user_data'));
@@ -63,9 +85,11 @@
     const tbody = document.getElementById('eventTableBody');
     const searchInput = document.getElementById('searchInput');
     const btnReset = document.getElementById('btnReset');
+    let rejectModalInstance;
 
     document.addEventListener('DOMContentLoaded', () => {
         fetchEvents();
+        rejectModalInstance = new bootstrap.Modal(document.getElementById('rejectModal'));
     });
 
     document.getElementById('searchForm').addEventListener('submit', function(e) {
@@ -131,11 +155,12 @@
                     <a href="/events/${event.id}/edit" class="btn btn-sm btn-outline-info" title="Lihat/Edit"><i class="fas fa-edit"></i></a>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteEvent(${event.id})" title="Hapus"><i class="fas fa-trash"></i></button>`;
             
-            } else if (event.status === 'pending_admin') { // STATUS DARI ANGGOTA
+            } else if (event.status === 'pending_admin') { 
                 statusBadge = '<span class="badge bg-warning text-dark"><i class="fas fa-user-shield"></i> Review Internal (HIMA)</span>';
                 actionBtns = `
-                    <button class="btn btn-sm btn-success fw-bold mb-1" onclick="approveInternal(${event.id}, 'pending_superadmin')" title="Teruskan ke Kampus"><i class="fas fa-check"></i> ACC</button>
-                    <button class="btn btn-sm btn-danger fw-bold mb-1" onclick="approveInternal(${event.id}, 'rejected')" title="Kembalikan ke Anggota"><i class="fas fa-times"></i> Tolak</button>`;
+                    <a href="/events/${event.id}/edit" class="btn btn-sm btn-outline-info mb-1" title="Lihat Detail Proposal"><i class="fas fa-eye"></i> Detail</a>
+                    <button class="btn btn-sm btn-success fw-bold mb-1" onclick="approveEvent(${event.id})" title="Teruskan ke Kampus"><i class="fas fa-check"></i> ACC</button>
+                    <button class="btn btn-sm btn-danger fw-bold mb-1" onclick="openRejectModal(${event.id})" title="Kembalikan ke Anggota"><i class="fas fa-times"></i> Tolak</button>`;
             
             } else if (event.status === 'pending' || event.status === 'pending_superadmin') {
                 statusBadge = '<span class="badge bg-primary"><i class="fas fa-clock"></i> Review Kampus</span>';
@@ -166,18 +191,34 @@
         });
     }
 
-    window.approveInternal = async function(id, action) {
-        let reason = '';
-        if (action === 'rejected') {
-            reason = prompt('Masukkan alasan penolakan/revisi ke anggota agar mereka bisa memperbaiki proposalnya:');
-            if (reason === null) return; 
-        } else {
-            if (!confirm('Setujui dan teruskan proposal ini ke Kampus (Superadmin)?')) return;
+    window.approveEvent = function(id) {
+        if (!confirm('Setujui dan teruskan proposal ini ke Kampus (Superadmin)?')) return;
+        processInternalStatus(id, 'pending_superadmin', null);
+    }
+
+    window.openRejectModal = function(id) {
+        document.getElementById('rejectEventId').value = id;
+        document.getElementById('rejectReason').value = '';
+        rejectModalInstance.show();
+    }
+
+    window.submitRejection = function() {
+        let id = document.getElementById('rejectEventId').value;
+        let reason = document.getElementById('rejectReason').value;
+        
+        if (!reason.trim()) {
+            alert('Silakan tulis alasan penolakan terlebih dahulu.');
+            return;
         }
 
+        rejectModalInstance.hide();
+        processInternalStatus(id, 'rejected', reason);
+    }
+
+    async function processInternalStatus(id, action, reason) {
         try {
             let response = await fetch(`/api/events/${id}/internal-status`, {
-                method: 'POST',
+                method: 'PATCH',
                 headers: { 
                     'Authorization': `Bearer ${token}`, 
                     'Content-Type': 'application/json',
@@ -190,7 +231,7 @@
 
             if (response.ok) {
                 let alertBox = document.getElementById('alertBox');
-                alertBox.className = 'alert alert-success d-block small p-2';
+                alertBox.className = 'alert alert-success d-block small p-2 mb-3';
                 alertBox.innerHTML = '<i class="fas fa-check-circle me-1"></i> ' + result.message;
                 fetchEvents(searchInput.value); 
                 setTimeout(() => alertBox.classList.add('d-none'), 3000);

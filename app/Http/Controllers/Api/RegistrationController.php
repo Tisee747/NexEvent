@@ -11,7 +11,7 @@ class RegistrationController extends Controller
 {
     public function register(Request $request)
     {
-        $userId = $request->input('user_id', 1);
+        $userId = auth()->id();
         $eventID = $request->event_id;
 
         $targetEvent = Event::find($eventID);

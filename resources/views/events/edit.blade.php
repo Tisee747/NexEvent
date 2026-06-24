@@ -1,93 +1,107 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Acara')
+@section('title', 'Modifikasi Acara')
 
 @section('content')
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-    #map { height: 300px; width: 100%; border-radius: 8px; z-index: 1; }
+    #map { height: 320px; width: 100%; border-radius: 12px; z-index: 1; }
 </style>
 
 <div class="container-fluid p-0">
     <div class="mb-4">
-        <h4 class="fw-bold text-dark mb-1">Edit Acara</h4>
-        <p class="text-muted small">Ubah detail proposal atau dokumen pendukung acara Anda.</p>
+        <h4 class="fw-bold text-dark mb-1">Modifikasi Data Acara</h4>
+        <p class="text-muted small">Perbaiki informasi proposal yang mendapatkan catatan revisi dari pihak kampus.</p>
     </div>
 
-    <div id="alertBox" class="alert d-none small p-2"></div>
+    <div id="alertBox" class="alert d-none small p-3 rounded-3 fw-bold"></div>
 
-    <div class="card shadow-sm border-0 rounded-3">
-        <div class="card-body p-4">
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-4 p-md-5">
             <form id="editEventForm">
                 <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold">Judul Acara</label>
-                        <input type="text" id="title" name="title" class="form-control" required>
+                    <div class="col-md-6 mb-4">
+                        <label class="form-label fw-bold text-dark">Judul Acara</label>
+                        <input type="text" id="title" name="title" class="form-control bg-light py-2" required>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label fw-bold">Tanggal & Waktu</label>
-                        <input type="datetime-local" id="event_date" name="event_date" class="form-control" required>
+                    <div class="col-md-3 mb-4">
+                        <label class="form-label fw-bold text-dark">Tanggal Waktu</label>
+                        <input type="datetime-local" id="event_date" name="event_date" class="form-control bg-light py-2" required>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <label class="form-label fw-bold">Kapasitas Peserta</label>
-                        <input type="number" id="capacity" name="capacity" class="form-control" required>
+                    <div class="col-md-3 mb-4">
+                        <label class="form-label fw-bold text-dark">Kapasitas Maksimal</label>
+                        <input type="number" id="capacity" name="capacity" class="form-control bg-light py-2" required>
                     </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Deskripsi Lengkap</label>
-                    <textarea id="description" name="description" class="form-control" rows="4" required></textarea>
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">Deskripsi Lengkap</label>
+                    <textarea id="description" name="description" class="form-control bg-light py-2" rows="5" required></textarea>
                 </div>
 
-                <hr class="my-4">
-                <h6 class="fw-bold mb-3"><i class="fas fa-map-marker-alt text-danger me-2"></i>Detail Lokasi / Media Acara</h6>
+                <hr class="my-5 opacity-25">
                 
-                <div class="row mb-3">
+                <h5 class="fw-bold text-dark mb-4"><i class="fas fa-map-marker-alt text-danger me-2"></i> Pengaturan Lokasi Ulang</h5>
+                
+                <div class="row mb-4">
                     <div class="col-12">
-                        <label class="form-label fw-bold">Format Acara</label>
-                        <select name="is_online" id="is_online" class="form-select" onchange="toggleLocationMode()">
-                            <option value="0">Offline (Onsite)</option>
-                            <option value="1">Online (Virtual)</option>
+                        <label class="form-label fw-bold text-dark">Format Acara</label>
+                        <select name="is_online" id="is_online" class="form-select bg-light py-2" onchange="toggleLocationMode()">
+                            <option value="0">Kegiatan Offline</option>
+                            <option value="1">Kegiatan Online</option>
                         </select>
                     </div>
                 </div>
 
                 <div id="offline-section" class="mb-4">
-                    <label class="form-label fw-bold">Pilih Titik Lokasi Peta</label>
-                    <div id="map" class="mb-2 shadow-sm border"></div>
+                    <label class="form-label fw-bold text-dark">Nama Gedung Ruangan</label>
+                    <input type="text" id="location_name" name="location_name" class="form-control bg-light py-2 mb-3" placeholder="Ketik nama lokasi spesifik">
+                    <label class="form-label fw-bold text-dark">Titik Lokasi Peta</label>
+                    <div id="map" class="mb-3 shadow-sm border border-light"></div>
                     <div class="row">
                         <div class="col-6">
-                            <input type="text" id="latitude" name="latitude" class="form-control form-control-sm bg-light" readonly>
+                            <input type="text" id="latitude" name="latitude" class="form-control form-control-sm bg-light py-2 text-center fw-bold text-muted" readonly>
                         </div>
                         <div class="col-6">
-                            <input type="text" id="longitude" name="longitude" class="form-control form-control-sm bg-light" readonly>
+                            <input type="text" id="longitude" name="longitude" class="form-control form-control-sm bg-light py-2 text-center fw-bold text-muted" readonly>
                         </div>
                     </div>
                 </div>
 
                 <div id="online-section" class="mb-4" style="display: none;">
-                    <label class="form-label fw-bold">Tautan Virtual Meeting (Zoom / G-Meet)</label>
-                    <input type="url" id="meeting_link" name="meeting_link" class="form-control">
+                    <label class="form-label fw-bold text-dark">Tautan Platform Pertemuan Terpadu</label>
+                    <input type="url" id="meeting_link" name="meeting_link" class="form-control bg-light py-2">
                 </div>
 
-                <hr class="my-4">
-                <h6 class="fw-bold mb-3"><i class="fas fa-upload text-primary me-2"></i>Unggah Berkas Baru (Opsional)</h6>
+                <hr class="my-5 opacity-25">
+                
+                <h5 class="fw-bold text-dark mb-4"><i class="fas fa-upload text-primary me-2"></i> Penyesuaian Dokumen Revisi</h5>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <a id="btnViewPoster" href="#" target="_blank" class="btn btn-outline-primary w-100 d-none fw-bold"><i class="fas fa-image me-2"></i>Lihat Poster Saat Ini</a>
+                    </div>
+                    <div class="col-md-6">
+                        <a id="btnViewProposal" href="#" target="_blank" class="btn btn-outline-danger w-100 d-none fw-bold"><i class="fas fa-file-pdf me-2"></i>Lihat Proposal Saat Ini</a>
+                    </div>
+                </div>
+
                 <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold">Poster Acara (.jpg, .png)</label>
-                        <input type="file" class="form-control" name="poster_path" accept="image/*">
-                        <small class="text-muted">Biarkan kosong jika tidak ingin mengubah poster.</small>
+                    <div class="col-md-6 mb-4">
+                        <label class="form-label fw-bold text-dark">Unggah Poster Baru</label>
+                        <input type="file" class="form-control bg-light py-2" name="poster_path" accept="image/*">
+                        <small class="text-muted d-block mt-1">Kosongkan kolom ini jika desain poster tidak direvisi.</small>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold">Dokumen Proposal (.pdf)</label>
-                        <input type="file" class="form-control" name="proposal_path" accept="application/pdf">
-                        <small class="text-muted">Biarkan kosong jika tidak ingin mengubah proposal.</small>
+                    <div class="col-md-6 mb-4">
+                        <label class="form-label fw-bold text-dark">Unggah Proposal PDF Baru</label>
+                        <input type="file" class="form-control bg-light py-2" name="proposal_path" accept="application/pdf">
+                        <small class="text-muted d-block mt-1">Kosongkan kolom ini jika dokumen proposal tidak direvisi.</small>
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-end gap-2 mt-4">
-                    <a href="/events" class="btn btn-secondary">Batal</a>
-                    <button type="submit" id="btnSubmit" class="btn btn-primary fw-bold"><i class="fas fa-save me-1"></i> Simpan & Ajukan Ulang</button>
+                <div class="d-flex justify-content-end mt-4">
+                    <a href="/events" class="btn btn-light border py-2 px-4 me-3 fw-bold">Batalkan Proses</a>
+                    <button type="submit" id="btnSubmit" class="btn btn-primary py-2 px-5 fw-bold shadow-sm"><i class="fas fa-save me-2"></i> Simpan Modifikasi Data</button>
                 </div>
             </form>
         </div>
@@ -106,6 +120,13 @@
             let response = await fetch(`/api/events/${eventId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            
+            if (response.status === 401) {
+                localStorage.clear();
+                window.location.href = '/login';
+                return;
+            }
+
             let result = await response.json();
 
             if (response.ok) {
@@ -120,8 +141,21 @@
                 document.getElementById('event_date').value = dt.toISOString().slice(0,16);
 
                 document.getElementById('meeting_link').value = event.meeting_link || '';
+                document.getElementById('location_name').value = event.location_name || '';
                 document.getElementById('latitude').value = event.latitude || '-6.97426';
                 document.getElementById('longitude').value = event.longitude || '107.6337';
+
+                if (event.poster_path) {
+                    let posterBtn = document.getElementById('btnViewPoster');
+                    posterBtn.href = `/view-document?path=${encodeURIComponent(event.poster_path)}`;
+                    posterBtn.classList.remove('d-none');
+                }
+
+                if (event.proposal_path) {
+                    let proposalBtn = document.getElementById('btnViewProposal');
+                    proposalBtn.href = `/view-document?path=${encodeURIComponent(event.proposal_path)}`;
+                    proposalBtn.classList.remove('d-none');
+                }
 
                 let lat = event.latitude || -6.97426;
                 let lng = event.longitude || 107.6337;
@@ -143,7 +177,7 @@
                 toggleLocationMode();
             }
         } catch (error) {
-            console.error("Gagal mengambil data acara");
+            console.error("Gagal menarik data");
         }
     });
 
@@ -159,7 +193,7 @@
         
         let btn = document.getElementById('btnSubmit');
         let alertBox = document.getElementById('alertBox');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Mengunggah Modifikasi...';
         btn.disabled = true;
         alertBox.classList.add('d-none');
 
@@ -172,25 +206,31 @@
                 body: formData
             });
 
+            if (response.status === 401) {
+                localStorage.clear();
+                window.location.href = '/login';
+                return;
+            }
+
             let result = await response.json();
 
             if (response.ok) {
-                alertBox.className = 'alert alert-success small p-2';
-                alertBox.innerHTML = '<i class="fas fa-check-circle me-1"></i> Perubahan disimpan! Mengalihkan...';
+                alertBox.className = 'alert alert-success small p-3 rounded-3 fw-bold';
+                alertBox.innerHTML = '<i class="fas fa-check-circle me-2"></i> Perubahan berhasil disalin ke server inti.';
                 alertBox.classList.remove('d-none');
                 setTimeout(() => window.location.href = '/events', 1500);
             } else {
-                alertBox.className = 'alert alert-danger small p-2';
-                alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> ' + (result.message || 'Gagal menyimpan.');
+                alertBox.className = 'alert alert-danger small p-3 rounded-3 fw-bold';
+                alertBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i> Gagal memperbarui data';
                 alertBox.classList.remove('d-none');
-                btn.innerHTML = '<i class="fas fa-save me-1"></i> Simpan & Ajukan Ulang';
+                btn.innerHTML = '<i class="fas fa-save me-2"></i> Simpan Modifikasi Data';
                 btn.disabled = false;
             }
         } catch (error) {
-            alertBox.className = 'alert alert-danger small p-2';
-            alertBox.innerHTML = '<i class="fas fa-wifi me-1"></i> Gagal terhubung ke server.';
+            alertBox.className = 'alert alert-danger small p-3 rounded-3 fw-bold';
+            alertBox.innerHTML = '<i class="fas fa-wifi me-2"></i> Koneksi terputus';
             alertBox.classList.remove('d-none');
-            btn.innerHTML = '<i class="fas fa-save me-1"></i> Simpan & Ajukan Ulang';
+            btn.innerHTML = '<i class="fas fa-save me-2"></i> Simpan Modifikasi Data';
             btn.disabled = false;
         }
     });

@@ -90,4 +90,6 @@ class ParticipantController extends Controller
             'message' => 'Peserta berhasil didiskualifikasi/dihapus.'
         ], 200);
     }
+
+    
 }
