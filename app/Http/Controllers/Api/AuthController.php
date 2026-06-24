@@ -15,7 +15,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => ['required', 'email', 'regex:/^[a-zA-Z0-9._%+-]+@student\.telkomuniversity\.ac\.id$/'],
             'password' => 'required'
         ]);
 
@@ -25,8 +25,18 @@ class AuthController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Email atau password salah.'], 401);
         }
 
+<<<<<<< HEAD
         if ($user->role === 'admin' && $user->status === 'pending') {
             return response()->json(['status' => 'error', 'message' => 'Akun organisasi Anda belum disetujui oleh Superadmin.'], 403);
+=======
+        $user = User::where('email', $request->email)->firstOrFail();
+        
+        if ($user->role === 'anggota_organisasi' && $user->status === 'pending') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Akun Anda masih menunggu persetujuan.'
+            ], 403);
+>>>>>>> a10c1225fccf0f0dfbbb7baf8ca5e4678562abe7
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -43,8 +53,22 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+<<<<<<< HEAD
         return response()->json(['message' => 'Fungsi registrasi organisasi']);
     }
+=======
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'nim' => 'required|string|max:20',
+            'fakultas' => 'nullable|string|max:255',
+            'program_studi' => 'nullable|string|max:255',
+            'angkatan' => 'nullable|string|max:10',
+            'organization' => 'nullable|string|max:255',
+            'role' => 'required|in:mahasiswa,anggota_organisasi',
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users', 'regex:/^[a-zA-Z0-9._%+-]+@student\.telkomuniversity\.ac\.id$/' ],
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+>>>>>>> a10c1225fccf0f0dfbbb7baf8ca5e4678562abe7
 
     public function sendOtp(Request $request)
     {
@@ -76,6 +100,7 @@ class AuthController extends Controller
 
         $user = \App\Models\User::create([
             'name' => $request->name,
+<<<<<<< HEAD
             'email' => $request->email,
             'password' => bcrypt($request->password),
             'role' => 'student',
@@ -83,13 +108,28 @@ class AuthController extends Controller
             'nim' => $request->nim,
             'fakultas' => $request->fakultas,
             'program_studi' => $request->program_studi,
+=======
+            'organization' => $request->role == 'anggota_organisasi' ? $request->organization: null,
+            'email' => $request->email,
+            'password' => bcrypt($request->password),
+            'role' => $request->role,
+            'status' => $request->role == 'anggota_organisasi' ? 'pending' : 'active',
+            'nim' => $request->nim,
+            'fakultas' => $request->fakultas,
+            'program_studi' => $request->program_studi,
+            'angkatan' => $request->angkatan,
+>>>>>>> a10c1225fccf0f0dfbbb7baf8ca5e4678562abe7
         ]);
 
         $validOtp->delete();
 
         return response()->json([
             'status' => 'success',
+<<<<<<< HEAD
             'message' => 'Akun mahasiswa berhasil dibuat. Silakan masuk.',
+=======
+            'message' => $request->role == 'anggota_organisasi' ? 'Registrasi berhasil. Menunggu persetujuan Superadmin.' : 'Registrasi berhasil.',
+>>>>>>> a10c1225fccf0f0dfbbb7baf8ca5e4678562abe7
             'data' => $user
         ], 201);
     }
