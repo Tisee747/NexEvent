@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 Route::get('/login', function () { return view('auth.login'); })->name('login');
 Route::get('/register', function () { return view('auth.register'); })->name('register');
 
-// Tampilan Panitia Organisasi
+// Tampilan Admin
 Route::get('/', function () { return view('dashboard'); })->name('dashboard');
 Route::get('/events', function () { return view('events.index'); })->name('events.index');
 Route::get('/events/create', function () { return view('events.create'); })->name('events.create');

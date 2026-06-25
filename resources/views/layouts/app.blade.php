@@ -69,7 +69,7 @@
                     <i class="fas fa-qrcode me-2 w-20px"></i> Verifikasi Kehadiran
                 </a>
                 <a href="/admin/members" class="{{ request()->is('admin/members*') ? 'active' : '' }}">
-                    <i class="fas fa-user-plus me-2 w-20px"></i> Manajemen Panitia
+                    <i class="fas fa-user-plus me-2 w-20px"></i> Manajemen Anggota
                 </a>
             </div>
             

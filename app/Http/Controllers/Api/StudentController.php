@@ -13,7 +13,6 @@ class StudentController extends Controller
 {
     public function feed()
     {
-        // Menambahkan relasi panitia dan menghitung pendaftar untuk sisa kuota
         $events = Event::with('panitia')
             ->withCount(['registrations' => function($q) {
                 $q->where('status', 'utama');
@@ -38,7 +37,6 @@ class StudentController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Anda sudah terdaftar di acara ini'], 400);
         }
 
-        // PERBAIKAN LOGIKA KUOTA
         $utamaCount = Registration::where('event_id', $eventId)->where('status', 'utama')->count();
         $status = ($utamaCount >= $event->capacity) ? 'waitlist' : 'utama';
 
